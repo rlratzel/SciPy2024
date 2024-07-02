@@ -40,7 +40,7 @@ if __name__ == "__main__":
     pageTitleMap = read_title_file(sys.argv[2])
     print("read page titles in %s seconds" % (time.time() - st))
 
-    G = cugraph.DiGraph()
+    G = cugraph.Graph(directed=True)
     G.from_cudf_edgelist(gdf, source='0', destination='1')
 
     def sssp(pageTitle):
@@ -58,7 +58,7 @@ if __name__ == "__main__":
         for t in path:
             print("\t%s" % t)
 
-    print("Using a DiGraph of Wikipedia data from Feb. 2020 to trace the relationships between things:")
+    print("Using a directed Graph of Wikipedia data from Feb. 2020 to trace the relationships between things:")
     print("-" * 10)
     print("How the Chevrolet Corvette is related to...")
     corvetteDistances = sssp("'Chevrolet Corvette'")
