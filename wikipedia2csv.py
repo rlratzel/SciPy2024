@@ -1,15 +1,23 @@
 import time
 import xml.etree.ElementTree as ET
 from enum import Enum
-import mwparserfromhell as mwp
+#import mwparserfromhell as mwp
 
-parserStateEnum = Enum("parserStateEnum",
-                       "lookingForNextPage foundPage")
+import re
+patt = re.compile(r"\[\[([\w:;,. \-\+\\\/\#\$\%\^\&\*\?\<\>\"\'\(\)]+)(\|[\w:;,. \-\+\\\/\#\$\%\^\&\*\?\<\>\"\'\(\)]+)?\]\]")
+#patt = re.compile(r"\[\[([^\|^]]+)(\|[^\|^]]+)?\]\]")
 
+def getLinksFromText(text):
+    #parser = mwp.parse(text)
+    #return [str(l.title) for l in parser.filter_wikilinks()]
+    if text is None:
+        return []
 
-def getLinksFromText(title, text):
-    parser = mwp.parse(text)
-    return [str(l.title) for l in parser.filter_wikilinks()]
+    return [m.group(1) for m in patt.finditer(text)]
+    #rv=[m.group(1) for m in patt.finditer(text)]
+    #breakpoint()
+    #return rv
+
 
 def convertSecondsToHumanReadable(s):
     hours = s / 3600
@@ -30,7 +38,6 @@ def processXmlFile(xmlFileName):
     adjacencyListMap = {}
     redirectMap = {}
     lastIndex = 0
-    parserState = parserStateEnum.lookingForNextPage
     title = None
     processingPage = False
 
@@ -108,7 +115,7 @@ def processXmlFile(xmlFileName):
                             titleIndexMap[titleIndex] = title
 
                         adjList = []
-                        for linkTitle in getLinksFromText(title, elem.text):
+                        for linkTitle in getLinksFromText(elem.text):
                             linkTitleIndex = titleIndexMap.get(linkTitle)
                             # if a link title has already been processed, use
                             # that index, otherwise create a new one for the
@@ -174,7 +181,7 @@ if __name__ == "__main__":
         # only print index->title mapping for file size, reverse map can be made
         # at load.
         if isinstance(key, int):
-            namesOut.write("%d:::\"\"\"%s\"\"\"\n" % (key, repr(value)))
+            namesOut.write(f"{key}\t\"\"\"{repr(value)}\"\"\"\n")
     namesOut.close()
 
     #tree = ET.parse(xmlFileName)

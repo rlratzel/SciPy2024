@@ -1,0 +1,56 @@
+# Enable cudf.pandas:
+# python -m cudf.pandas demo1.py
+#
+# Enable nx-cugraph:
+# NETWORKX_BACKEND_PRIORITY="cugraph" python demo1.py
+#
+import os
+
+import pandas as pd
+import networkx as nx
+
+nx.config.cache_converted_graphs = True  # This is the default in NX 3.4
+
+# wget https://dumps.wikimedia.org/enwiki/20240620/enwiki-20240620-pages-articles-multistream.xml.bz2
+# run wikipedia2csv_3.py
+edgelist_csv = "enwiki-20240620-edges_2.csv"
+nodedata_csv = "enwiki-20240620-nodeids_2_2.csv"
+
+print(f"\nRead the wikipedia connectivity information from {edgelist_csv}...")
+%time \
+edgelist_df = pd.read_csv( \
+    edgelist_csv, \
+    sep=" ", \
+    names=["src", "dst"], \
+    dtype="int32", \
+)
+print(f"\nRead the metadata about each wikipedia page from {nodedata_csv}...")
+%time \
+nodedata_df = pd.read_csv( \
+    nodedata_csv, \
+    sep="\t", \
+    names=["nodeid", "title"], \
+    dtype={"nodeid": "int32", "title": "str"}, \
+)
+
+print(f"\nCreate a NetworkX graph from the connectivity info...")
+%time \
+G = nx.from_pandas_edgelist( \
+    edgelist_df, \
+    source="src", \
+    target="dst", \
+    create_using=nx.DiGraph, \
+)
+
+print(f"\nRun NetworkX pagerank...")
+%time nx_pr_results = nx.pagerank(G)
+
+if os.environ.get("NETWORKX_BACKEND_PRIORITY") is not None:
+    print(f"\nRun again using the cached graph conversion...")
+    %time nxcg_pr_results = nx.pagerank(G, backend="cugraph")
+
+print(f"\nAdd pagerank result to nodedata as a new column...")
+%time nodedata_df["pagerank"] = nodedata_df["nodeid"].map(nx_pr_results)
+
+print(f"\nShow the top 25 pages based on pagerank score...")
+%time nodedata_df.sort_values(by="pagerank", ascending=False).head(25)

@@ -13,12 +13,12 @@ def read_title_file(title_file):
         for line in f:
             i += 1
             try:
-                lineParts = line.split(":::")
+                lineParts = line.split("\t")
                 vertexNum = lineParts[0]
-                # title could have the delim (":::") in it, so concat all
+                # title could have the delim ("\t") in it, so concat all
                 # remaining parts that were split on delim back together using
                 # the delim
-                title = ":::".join(lineParts[1:]).strip()
+                title = "\t".join(lineParts[1:]).strip()
             except:
                 print("Error reading line %d: %s" % (i, line))
                 raise
