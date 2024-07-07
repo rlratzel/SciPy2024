@@ -129,17 +129,70 @@ with Timer(f"convert nodeids in the path to page titles and print the path"):
     for nodeid in shortest_path:
         print(f'{nodedata_df.loc[nodedata_df["nodeid"] == nodeid]["title"].values[0]}')
 
+
+# shortest_path demo
+# NX:
+# Find the shortest path between nodeid and all articles...
+# Done in: 0:15:57.523904
+#
+# nx-cugraph (warm cache):
+# Find the shortest path between nodeid and all articles using nx-cugraph...
+# Done in: 0:05:08.500059
+#
+# ~3.1X speedup
+#
+# Verify results:
+# >>> sorted(nx_shortest_paths)==sorted(nxcg_shortest_paths)
+# True
 with Timer(f"Find the shortest path between the SciPy article and all articles"):
     nx_shortest_paths = nx.shortest_path(G, source=scipy_nodeid)
 
 with Timer(f"Create a DataFrame containing nodeids and hops from the SciPy article"):
     hops_df = pd.DataFrame([(nodeid, len(nx_shortest_paths[nodeid]) - 1)
-                            for nodeid in nx_shortest_paths], columns=["nodeid", "hops_from_scipy"])
+                            for nodeid in nx_shortest_paths],
+                           columns=["nodeid", "hops_from_scipy"])
 
 with Timer(f"Add hops to nodedata as new columns"):
     nodedata_df = nodedata_df.merge(hops_df, how="left", on="nodeid")
 
 # groupby hops
+#
+# * Show the distribution of hops. There seems to be many that are
+#   only 3-4 hops away, and fewer that are more hops)
+# * Can we plot this?
+# * Show a couple of examples for fun
+#
+# (these are actual examples)
+#
+# convert nodeids in the path to page titles and print the path...
+# "'SciPy'"
+# "'Python (programming language)'"
+# "'Blender (software)'"
+# "'Orange (fruit)'"
+# "'Orange juice'"
+# Done in: 0:00:00.244181
+#
+#
+# A node that's more hops away is nodeid 39961422
+# (this is fun since it includes Travis' article in the path)
+#
+# >>> with Timer(f"convert nodeids in the path to page titles and print the path"):
+# ...  for nodeid in nx_shortest_paths[39961422]:
+# ...   print(f'{nodedata_df.loc[nodedata_df["nodeid"] == nodeid]["title"].values[0]}')
+# ...
+#
+# convert nodeids in the path to page titles and print the path...
+# "'SciPy'"
+# "'Travis Oliphant'"
+# "'Salt Lake City'"
+# "'List of capitals in the United States'"
+# "'Potomac River'"
+# "'Redfin pickerel'"
+# "'List of least concern fishes'"
+# "'Longhead flathead'"
+# "'Semi-armed flathead'"
+# "'Long Island, Houtman Abrolhos'"
+# Done in: 0:00:00.411233
 
 
 Timer.print_total()
