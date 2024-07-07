@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write, BufReader};
 use std::time::Instant;
 use std::str;
+use bzip2::read::MultiBzDecoder;
 
 fn convert_seconds_to_human_readable(s: u64) -> String {
     let hours = s / 3600;
@@ -15,7 +16,41 @@ fn convert_seconds_to_human_readable(s: u64) -> String {
     format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
 }
 
-fn process_xml_file(
+enum ReaderType {
+    Compressed(quick_xml::Reader<BufReader<bzip2::read::MultiBzDecoder<File>>>),
+    Uncompressed(quick_xml::Reader<BufReader<File>>),
+}
+
+trait XmlReader {
+    fn config_mut(&mut self) -> &mut quick_xml::reader::Config;
+    fn read_event_into<'b>(&mut self, buf: &'b mut Vec<u8>) -> quick_xml::Result<Event<'b>>;
+    fn buffer_position(&self) -> u64;
+}
+
+impl XmlReader for ReaderType {
+    fn config_mut(&mut self) -> &mut quick_xml::reader::Config {
+        match self {
+            ReaderType::Compressed(r) => r.config_mut(),
+            ReaderType::Uncompressed(r) => r.config_mut(),
+        }
+    }
+
+    fn read_event_into<'b>(&mut self, buf: &'b mut Vec<u8>) -> quick_xml::Result<Event<'b>> {
+        match self {
+            ReaderType::Compressed(r) => r.read_event_into(buf),
+            ReaderType::Uncompressed(r) => r.read_event_into(buf),
+        }
+    }
+
+    fn buffer_position(&self) -> u64 {
+        match self {
+            ReaderType::Compressed(r) => r.buffer_position(),
+            ReaderType::Uncompressed(r) => r.buffer_position(),
+        }
+    }
+}
+
+fn process_xml_file<const READ_COMPRESSED: bool>(
     xml_file_name: &str,
     max_pages: Option<usize>,
 ) -> (
@@ -38,7 +73,13 @@ fn process_xml_file(
     let mut real_page_index = 0;  // Pages that are not redirects
 
     let file = File::open(xml_file_name).unwrap();
-    let mut reader = Reader::from_reader(BufReader::new(file));
+    let mut reader: ReaderType = if READ_COMPRESSED {
+        let bz2_reader = MultiBzDecoder::new(file);
+        ReaderType::Compressed(Reader::from_reader(BufReader::new(bz2_reader)))
+    } else {
+        ReaderType::Uncompressed(Reader::from_reader(BufReader::new(file)))
+    };
+
     reader.config_mut().trim_text(true);
     let mut buf = Vec::new();
 
@@ -163,7 +204,13 @@ fn main() -> io::Result<()> {
         None
     };
 
-    let (adjacency_list_map, title_index_map) = process_xml_file(xml_file_name, max_pages);
+    let adjacency_list_map;
+    let title_index_map;
+    if xml_file_name.ends_with(".bz2") {
+        (adjacency_list_map, title_index_map) = process_xml_file::<true>(xml_file_name, max_pages);
+    } else {
+        (adjacency_list_map, title_index_map) = process_xml_file::<false>(xml_file_name, max_pages);
+    }
 
     let csv_out = File::create(csv_out_file_name)?;
     let mut csv_writer = BufWriter::new(csv_out);

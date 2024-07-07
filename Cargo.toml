@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 quick-xml = "0.35.0"
 regex = "1.5.4"
+bzip2 = "0.4.4"
