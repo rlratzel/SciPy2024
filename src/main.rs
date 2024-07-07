@@ -34,8 +34,8 @@ fn process_xml_file(
     let st = Instant::now();
     let mut intermediate_time = st;
     let num_pages_to_issue_update = 1000;
-    let mut i = 0;
-    let mut real_index = 0;
+    let mut page_index = 0;
+    let mut real_page_index = 0;  // Pages that are not redirects
 
     let file = File::open(xml_file_name).unwrap();
     let mut reader = Reader::from_reader(BufReader::new(file));
@@ -45,14 +45,11 @@ fn process_xml_file(
     let patt = Regex::new(r#"\[\[([\w:;,. \-\+/#$%\^&*?<>"'()]+)(\|[\w:;,. \-\+/#$%\^&*?<>"'()]+)?\]\]"#).unwrap();
 
     loop {
-        let val = reader.read_event_into(&mut buf);
-        match val {
+        match reader.read_event_into(&mut buf) {
             Ok(Event::Empty(ref e)) => {
                 if e.starts_with(b"redirect") {
                     let text = String::from_utf8_lossy(e.name().0);
                     redirect_map.insert(title.clone().unwrap(), text.to_string());
-                    processing_page = false;
-                    title = None;
                 }
             }
             Ok(Event::Start(ref e)) => {
@@ -67,14 +64,14 @@ fn process_xml_file(
             Ok(Event::End(ref e)) => {
                 if e.ends_with(b"page") {
                     processing_page = false;
-                    i += 1;
-                    if i % num_pages_to_issue_update == 0 {
+                    page_index += 1;
+                    if page_index % num_pages_to_issue_update == 0 {
                         let now = Instant::now();
                         println!(
                             "processed {} pages in {} seconds ({} total pages in {})...",
                             num_pages_to_issue_update,
                             now.duration_since(intermediate_time).as_secs(),
-                            i,
+                            page_index,
                             convert_seconds_to_human_readable(now.duration_since(st).as_secs())
                         );
                         intermediate_time = now;
@@ -92,14 +89,13 @@ fn process_xml_file(
                         let text = String::from(e.unescape().unwrap());
                         title = Some(text);
                     } else if processing_text {
-                        let text = String::from(e.unescape().unwrap());
                         let adj_list: Vec<String> = patt
-                            .captures_iter(&text)
+                            .captures_iter(e.unescape().unwrap().as_ref())
                             .map(|cap| cap[1].to_string())
                             .collect();
                         adjacency_list_map.insert(title.clone().unwrap(), adj_list);
-                        title_index_map.insert(title.clone().unwrap(), real_index);
-                        real_index += 1;
+                        title_index_map.insert(title.clone().unwrap(), real_page_index);
+                        real_page_index += 1;
                     }
                 }
             }
@@ -109,7 +105,7 @@ fn process_xml_file(
         }
 
         if let Some(max_pages) = max_pages {
-            if i >= max_pages {
+            if page_index >= max_pages {
                 break;
             }
         }
