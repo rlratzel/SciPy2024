@@ -1,6 +1,7 @@
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use regex::Regex;
+use bzip2::read::MultiBzDecoder;
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
@@ -16,7 +17,7 @@ fn convert_seconds_to_human_readable(s: u64) -> String {
 }
 
 fn process_xml_file(
-    xml_file_name: &str,
+    compressed_xml_file_name: &str,
     max_pages: Option<usize>,
 ) -> (
     HashMap<usize, Vec<usize>>,
@@ -30,15 +31,18 @@ fn process_xml_file(
     let mut processing_title = false;
     let mut processing_text = false;
 
-    println!("Reading: {}", xml_file_name);
+    println!("Reading: {}", compressed_xml_file_name);
     let st = Instant::now();
     let mut intermediate_time = st;
     let num_pages_to_issue_update = 1000;
     let mut page_index = 0;
     let mut real_page_index = 0;  // Pages that are not redirects
 
-    let file = File::open(xml_file_name).unwrap();
-    let mut reader = Reader::from_reader(BufReader::new(file));
+    let file = File::open(compressed_xml_file_name);
+    let buffered_reader = BufReader::new(file.unwrap());
+    let decompressor = MultiBzDecoder::new(buffered_reader);
+    let decompressed_buffered_reader = BufReader::new(decompressor);
+    let mut reader = Reader::from_reader(decompressed_buffered_reader);
     reader.config_mut().trim_text(true);
     let mut buf = Vec::new();
 
@@ -154,7 +158,7 @@ fn process_xml_file(
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
-    let xml_file_name = &args[1];
+    let compressed_xml_file_name = &args[1];
     let csv_out_file_name = &args[2];
     let node_names_out_file_name = &args[3];
     let max_pages = if args.len() > 4 {
@@ -163,7 +167,7 @@ fn main() -> io::Result<()> {
         None
     };
 
-    let (adjacency_list_map, title_index_map) = process_xml_file(xml_file_name, max_pages);
+    let (adjacency_list_map, title_index_map) = process_xml_file(compressed_xml_file_name, max_pages);
 
     let csv_out = File::create(csv_out_file_name)?;
     let mut csv_writer = BufWriter::new(csv_out);
