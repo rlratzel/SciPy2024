@@ -155,11 +155,14 @@ with Timer(f"Create a DataFrame containing nodeids and hops from the SciPy artic
 with Timer(f"Add hops to nodedata as new columns"):
     nodedata_df = nodedata_df.merge(hops_df, how="left", on="nodeid")
 
-# groupby hops
+# groupby number of hops
 #
-# * Show the distribution of hops. There seems to be many that are
+# * Show the distribution of number of hops. There seems to be many that are
 #   only 3-4 hops away, and fewer that are more hops)
-# * Can we plot this?
+#
+# * Can we plot this? The size of each group (y-axis) vs. the number of hops of
+#   each group (x-axis)
+#
 # * Show a couple of examples for fun
 #
 # (these are actual examples)
