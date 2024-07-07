@@ -57,6 +57,27 @@ with Timer(f"Read the wikipedia page metadata from {nodedata_csv}"):
         dtype={"nodeid": "int32", "title": "str"},
     )
 
+wp_namespace_filter = {
+    "User:", "Wikipedia:", "Project:", "File:", "Image:", "MediaWiki:", "Template:",
+    "Help:", "Category:", "Portal:", "Draft:", "TimedText:", "Module:",
+}
+wp_namespace_filter.update({ns[:-1] + " talk:" for ns in wp_namespace_filter})
+wp_namespace_filter.update({"WP:", "WT:", "TM:"})
+# Keeping {Category:, Portal:}, but not the talk namespaces for each
+wp_namespace_filter.difference_update({"Category:", "Portal:"})
+# Titles are in quotes, so add leading quote to match using .startswith()
+wp_namespace_filter = tuple(f"\"\'{ns}" for ns in wp_namespace_filter) + \
+                      tuple(f"\'\"{ns}" for ns in wp_namespace_filter)
+
+
+print(f"\nNumber of links: {len(edgelist_df)}")
+with Timer(f"Remove pages not in the main namespace"):
+    nodeids_to_remove = set(nodedata_df[nodedata_df["title"].str.startswith(wp_namespace_filter)]["nodeid"])
+    edgelist_df = edgelist_df[~edgelist_df["src"].isin(nodeids_to_remove)]
+    edgelist_df = edgelist_df[~edgelist_df["dst"].isin(nodeids_to_remove)]
+print(f"\nnumber of nodeids to remove: {len(nodeids_to_remove)}")
+print(f"Number of links: {len(edgelist_df)}")
+
 """
 import nx_cugraph as nxcg
 with Timer(f"Create a nx-cugraph graph from the connectivity info"):
@@ -78,7 +99,7 @@ with Timer(f"Create a NetworkX graph from the connectivity info"):
         create_using=nx.DiGraph,
     )
 
-with Timer(f"Run NetworkX pagerank"):
+with Timer(f"Run NetworkX PageRank"):
     nx_pr_vals = nx.pagerank(G)
 
 if os.environ.get("NETWORKX_BACKEND_PRIORITY") is not None:
@@ -96,7 +117,7 @@ with Timer(f"Create a DataFrame containing NetworkX results"):
 with Timer(f"Add NetworkX results to nodedata as new columns"):
     nodedata_df = nodedata_df.merge(nx_results, how="left", on="nodeid")
 
-with Timer(f"Show the top 25 pages based on pagerank value"):
+with Timer(f"Show the top 25 pages based on PageRank value"):
     print(nodedata_df.sort_values(by="pagerank", ascending=False).head(25))
 
 with Timer(f"Show the top 25 pages based on HITS hub value"):

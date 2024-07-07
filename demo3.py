@@ -58,6 +58,29 @@ with Timer(f"Read the wikipedia page metadata from {nodedata_csv}"):
     )
 
 """
+wp_namespace_filter = {
+    "User:", "Wikipedia:", "Project:", "File:", "Image:", "MediaWiki:", "Template:",
+    "Help:", "Category:", "Portal:", "Draft:", "TimedText:", "Module:",
+}
+wp_namespace_filter.update({ns[:-1] + " talk:" for ns in wp_namespace_filter})
+wp_namespace_filter.update({"WP:", "WT:", "TM:"})
+# Keeping {Category:, Portal:}, but not the talk namespaces for each
+wp_namespace_filter.difference_update({"Category:", "Portal:"})
+# Titles are in quotes, so add leading quote to match using .startswith()
+wp_namespace_filter = tuple(f"\"\'{ns}" for ns in wp_namespace_filter) + \
+                      tuple(f"\'\"{ns}" for ns in wp_namespace_filter)
+
+
+print(f"\nNumber of links: {len(edgelist_df)}")
+with Timer(f"Remove pages not in the main namespace"):
+    nodeids_to_remove = set(nodedata_df[nodedata_df["title"].str.startswith(wp_namespace_filter)]["nodeid"])
+    edgelist_df = edgelist_df[~edgelist_df["src"].isin(nodeids_to_remove)]
+    edgelist_df = edgelist_df[~edgelist_df["dst"].isin(nodeids_to_remove)]
+print(f"\nnumber of nodeids to remove: {len(nodeids_to_remove)}")
+print(f"Number of links: {len(edgelist_df)}")
+"""
+
+"""
 import nx_cugraph as nxcg
 with Timer(f"Create a nx-cugraph graph from the connectivity info"):
     Gcg = nxcg.from_pandas_edgelist(
@@ -77,32 +100,46 @@ with Timer(f"Create a NetworkX graph from the connectivity info"):
         target="dst",
         create_using=nx.DiGraph,
     )
-
-with Timer(f"Run NetworkX pagerank"):
+"""
+with Timer(f"Run NetworkX PageRank"):
     nx_pr_vals = nx.pagerank(G)
 
 if os.environ.get("NETWORKX_BACKEND_PRIORITY") is not None:
     with Timer(f"Run again using the cached graph conversion"):
         nxcg_pr_vals = nx.pagerank(G, backend="cugraph")
 
-with Timer(f"Run NetworkX HITS"):
-    (nx_hits_hubs, nx_hits_authorities) = nx.hits(G)
-
 with Timer(f"Create a DataFrame containing NetworkX results"):
-    nx_results = pd.DataFrame([(nodeid, pagerank, nx_hits_hubs[nodeid], nx_hits_authorities[nodeid])
-                               for (nodeid, pagerank) in nx_pr_vals.items()],
-                              columns=["nodeid", "pagerank", "hub_val", "auth_val"])
+    nx_results = pd.DataFrame([items for iitems in nx_pr_vals.items()],
+                              columns=["nodeid", "pagerank"])
 
 with Timer(f"Add NetworkX results to nodedata as new columns"):
     nodedata_df = nodedata_df.merge(nx_results, how="left", on="nodeid")
 
-with Timer(f"Show the top 25 pages based on pagerank value"):
+with Timer(f"Show the top 25 pages based on PageRank value"):
     print(nodedata_df.sort_values(by="pagerank", ascending=False).head(25))
+"""
+with Timer(f"Find the nodeids for two articles in the nodedata"):
+    scipy_nodeid = nodedata_df.loc[nodedata_df["title"] == "\"\'SciPy\'\""]["nodeid"].values[0]
+    orange_juice_nodeid = nodedata_df.loc[nodedata_df["title"] == "\"\'Orange juice\'\""]["nodeid"].values[0]
 
-with Timer(f"Show the top 25 pages based on HITS hub value"):
-    print(nodedata_df.sort_values(by="hub_val", ascending=False).head(25))
+with Timer(f"Find the shortest path between the two articles"):
+    shortest_path = nx.shortest_path(G, source=scipy_nodeid, target=orange_juice_nodeid)
 
-with Timer(f"Show the top 25 pages based on HITS authority value"):
-    print(nodedata_df.sort_values(by="auth_val", ascending=False).head(25))
+with Timer(f"convert nodeids in the path to page titles and print the path"):
+    for nodeid in shortest_path:
+        print(f'{nodedata_df.loc[nodedata_df["nodeid"] == nodeid]["title"].values[0]}')
+
+with Timer(f"Find the shortest path between the SciPy article and all articles"):
+    nx_shortest_paths = nx.shortest_path(G, source=scipy_nodeid)
+
+with Timer(f"Create a DataFrame containing nodeids and hops from the SciPy article"):
+    hops_df = pd.DataFrame([(nodeid, len(nx_shortest_paths[nodeid]) - 1)
+                            for nodeid in nx_shortest_paths], columns=["nodeid", "hops_from_scipy"])
+
+with Timer(f"Add hops to nodedata as new columns"):
+    nodedata_df = nodedata_df.merge(hops_df, how="left", on="nodeid")
+
+# groupby hops
+
 
 Timer.print_total()
