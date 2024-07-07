@@ -33,7 +33,7 @@ fn process_xml_file(
     println!("Reading: {}", xml_file_name);
     let st = Instant::now();
     let mut intermediate_time = st;
-    let num_pages_to_issue_update = 1000;
+    let num_pages_to_issue_update = 10000;
     let mut page_index = 0;
     let mut real_page_index = 0;  // Pages that are not redirects
 
@@ -42,7 +42,7 @@ fn process_xml_file(
     reader.config_mut().trim_text(true);
     let mut buf = Vec::new();
 
-    let patt = Regex::new(r#"\[\[([\w:;,. \-\+/#$%\^&*?<>"'()]+)(\|[\w:;,. \-\+/#$%\^&*?<>"'()]+)?\]\]"#).unwrap();
+    let patt = Regex::new(r#"\[\[([\w:;,. \-\+/#$%\^&*?<>"'()]+)(?:\|[\w:;,. \-\+/#$%\^&*?<>"'()]+)?\]\]"#).unwrap();
 
     loop {
         match reader.read_event_into(&mut buf) {
