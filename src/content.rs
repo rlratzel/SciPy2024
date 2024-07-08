@@ -51,7 +51,7 @@ impl XmlReader for ReaderType {
 
 pub fn process_xml_file<const READ_COMPRESSED: bool>(
     xml_file_name: &str,
-    max_pages: Option<usize>,
+    max_pages: &Option<usize>,
 ) -> (
     HashMap<usize, Vec<usize>>,
     HashMap<String, usize>,
@@ -145,7 +145,7 @@ pub fn process_xml_file<const READ_COMPRESSED: bool>(
         }
 
         if let Some(max_pages) = max_pages {
-            if page_index >= max_pages {
+            if page_index >= *max_pages {
                 break;
             }
         }
@@ -156,6 +156,7 @@ pub fn process_xml_file<const READ_COMPRESSED: bool>(
     println!("post-processing redirects...");
     let pt = Instant::now();
 
+    // Parallelize?
     for adj_list in adjacency_list_map.values_mut() {
         for k in adj_list.iter_mut() {
             while let Some(new_k) = redirect_map.get(k) {
@@ -165,23 +166,16 @@ pub fn process_xml_file<const READ_COMPRESSED: bool>(
     }
 
     let mut index_adj_map: HashMap<usize, Vec<usize>> = HashMap::new();
-    if max_pages.is_some() {
-        for (title, adj_list) in adjacency_list_map.iter() {
-            index_adj_map.insert(
-                title_index_map[title],
-                adj_list
-                    .iter()
-                    .filter_map(|k| title_index_map.get(k).cloned())
-                    .collect(),
-            );
-        }
-    } else {
-        for (title, adj_list) in adjacency_list_map.iter() {
-            index_adj_map.insert(
-                title_index_map[title],
-                adj_list.iter().map(|k| title_index_map[k]).collect(),
-            );
-        }
+    for (title, adj_list) in adjacency_list_map.iter() {
+        index_adj_map.insert(
+            title_index_map[title],
+            // Allow missing items for now. Ideally there wouldn't be any, but it's unlikely that
+            // the data is perfect.
+            adj_list
+                .iter()
+                .filter_map(|k| title_index_map.get(k).cloned())
+                .collect(),
+        );
     }
 
     println!(

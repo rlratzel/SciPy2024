@@ -1,9 +1,13 @@
 [package]
 name = "wikipedia2csv"
 version = "0.1.0"
+authors = ["Vyas R"]
 edition = "2021"
+description = "Processor for Wikipedia XML data dumps"
+license = "Apache-2.0"
 
 [dependencies]
 quick-xml = "0.35.0"
 regex = "1.5.4"
 bzip2 = "0.4.4"
+clap = { version = "4.5.8", features = ["derive"] }
