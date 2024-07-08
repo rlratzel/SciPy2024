@@ -80,7 +80,7 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Empty(ref e)) => {
-                if e.starts_with(b"redirect") {
+                if processing_page && e.starts_with(b"redirect") {
                     let text = String::from_utf8_lossy(e.name().0);
                     redirect_map.insert(title.clone().unwrap(), text.to_string());
                 }
@@ -100,12 +100,19 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
                 } else if e.ends_with(b"title") {
                     processing_title = false;
                 } else if e.ends_with(b"page") {
-                    // Uniquify the editors for this page up front to save space.
-                    // Check if title is None
                     if processing_page {
-                        let set: HashSet<String> = title_editors_map.get(&title.clone().unwrap()).unwrap().into_iter().cloned().collect();
-                        title_editors_map.insert(title.clone().unwrap(), set.into_iter().collect());
                         processing_page = false;
+
+                        // Uniquify the editors for this page up front to save space.
+                        // Apparently it is possible for a page to have no editors.
+                        if title_editors_map.contains_key(&title.clone().unwrap()) {
+                            let set: HashSet<String> = title_editors_map.get(&title.clone().unwrap())
+                                .unwrap()
+                                .into_iter()
+                                .cloned()
+                                .collect();
+                            title_editors_map.insert(title.clone().unwrap(), set.into_iter().collect());
+                        }
                         page_index += 1;
                         if page_index % num_pages_to_issue_update == 0 {
                             let now = Instant::now();
