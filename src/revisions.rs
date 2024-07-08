@@ -86,16 +86,20 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
                 }
             }
             Ok(Event::Start(ref e)) => {
-                if e.ends_with(b"page") {
-                    processing_page = true;
+                if e.starts_with(b"username") {
+                    processing_username = true;
                 } else if e.ends_with(b"title") {
                     processing_title = true;
-                } else if e.starts_with(b"username") {
-                    processing_username = true;
+                } else if e.ends_with(b"page") {
+                    processing_page = true;
                 }
             }
             Ok(Event::End(ref e)) => {
-                if e.ends_with(b"page") {
+                if e.starts_with(b"username") {
+                    processing_username = false;
+                } else if e.ends_with(b"title") {
+                    processing_title = false;
+                } else if e.ends_with(b"page") {
                     // Uniquify the editors for this page up front to save space.
                     // Check if title is None
                     if processing_page {
@@ -115,16 +119,15 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
                             intermediate_time = now;
                         }
                     }
-                } else if e.ends_with(b"title") {
-                    processing_title = false;
-                }  else if e.starts_with(b"username") {
-                    processing_username = false;
                 }
 
             }
             Ok(Event::Text(e)) => {
                 if processing_page {
-                    if processing_title {
+                    if processing_username {
+                        let text = String::from(e.unescape().unwrap());
+                        title_editors_map.entry(title.clone().unwrap()).or_insert_with(Vec::new).push(text);
+                    } else if processing_title {
                         let text = String::from(e.unescape().unwrap());
                         if text.starts_with("User:") || text.starts_with("Talk:") {
                             // Skip this page. Set the title to None, then also set processing_page
@@ -134,9 +137,6 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
                         } else {
                             title = Some(text);
                         }
-                    } else if processing_username {
-                        let text = String::from(e.unescape().unwrap());
-                        title_editors_map.entry(title.clone().unwrap()).or_insert_with(Vec::new).push(text);
                     }
                 }
             }
