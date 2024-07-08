@@ -90,27 +90,30 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
                     processing_page = true;
                 } else if e.ends_with(b"title") {
                     processing_title = true;
-                }  else if e.starts_with(b"username") {
+                } else if e.starts_with(b"username") {
                     processing_username = true;
                 }
             }
             Ok(Event::End(ref e)) => {
                 if e.ends_with(b"page") {
                     // Uniquify the editors for this page up front to save space.
-                    let set: HashSet<String> = title_editors_map.get(&title.clone().unwrap()).unwrap().into_iter().cloned().collect();
-                    title_editors_map.insert(title.clone().unwrap(), set.into_iter().collect());
-                    processing_page = false;
-                    page_index += 1;
-                    if page_index % num_pages_to_issue_update == 0 {
-                        let now = Instant::now();
-                        println!(
-                            "processed {} pages in {} seconds ({} total pages in {})...",
-                            num_pages_to_issue_update,
-                            now.duration_since(intermediate_time).as_secs(),
-                            page_index,
-                            convert_seconds_to_human_readable(now.duration_since(st).as_secs())
-                        );
-                        intermediate_time = now;
+                    // Check if title is None
+                    if processing_page {
+                        let set: HashSet<String> = title_editors_map.get(&title.clone().unwrap()).unwrap().into_iter().cloned().collect();
+                        title_editors_map.insert(title.clone().unwrap(), set.into_iter().collect());
+                        processing_page = false;
+                        page_index += 1;
+                        if page_index % num_pages_to_issue_update == 0 {
+                            let now = Instant::now();
+                            println!(
+                                "processed {} pages in {} seconds ({} total pages in {})...",
+                                num_pages_to_issue_update,
+                                now.duration_since(intermediate_time).as_secs(),
+                                page_index,
+                                convert_seconds_to_human_readable(now.duration_since(st).as_secs())
+                            );
+                            intermediate_time = now;
+                        }
                     }
                 } else if e.ends_with(b"title") {
                     processing_title = false;
@@ -123,7 +126,14 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
                 if processing_page {
                     if processing_title {
                         let text = String::from(e.unescape().unwrap());
-                        title = Some(text);
+                        if text.starts_with("User:") || text.starts_with("Talk:") {
+                            // Skip this page. Set the title to None, then also set processing_page
+                            // to false as a signal not to count the page when the page end tag hits.
+                            title = None;
+                            processing_page = false;
+                        } else {
+                            title = Some(text);
+                        }
                     } else if processing_username {
                         let text = String::from(e.unescape().unwrap());
                         title_editors_map.entry(title.clone().unwrap()).or_insert_with(Vec::new).push(text);
