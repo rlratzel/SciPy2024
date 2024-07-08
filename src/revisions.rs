@@ -1,6 +1,6 @@
 use quick_xml::events::Event;
 use quick_xml::Reader;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::BufReader;
 use std::time::Instant;
@@ -80,14 +80,12 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Empty(ref e)) => {
-                //println!("empty event: {:?}", e);
                 if e.starts_with(b"redirect") {
                     let text = String::from_utf8_lossy(e.name().0);
                     redirect_map.insert(title.clone().unwrap(), text.to_string());
                 }
             }
             Ok(Event::Start(ref e)) => {
-                //println!("start event: {:?}", e);
                 if e.ends_with(b"page") {
                     processing_page = true;
                 } else if e.ends_with(b"title") {
@@ -97,8 +95,10 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
                 }
             }
             Ok(Event::End(ref e)) => {
-                //println!("end event: {:?}", e);
                 if e.ends_with(b"page") {
+                    // Uniquify the editors for this page up front to save space.
+                    let set: HashSet<String> = title_editors_map.get(&title.clone().unwrap()).unwrap().into_iter().cloned().collect();
+                    title_editors_map.insert(title.clone().unwrap(), set.into_iter().collect());
                     processing_page = false;
                     page_index += 1;
                     if page_index % num_pages_to_issue_update == 0 {
@@ -130,10 +130,7 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
                     }
                 }
             }
-            Ok(Event::Eof) => {
-                println!("eof event");
-                break;
-            }
+            Ok(Event::Eof) => break,
             Err(e) => panic!("Error at position {}: {:?}", reader.buffer_position(), e),
             _ => {}
         }
