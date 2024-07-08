@@ -1,4 +1,5 @@
 mod content;
+mod revisions;
 use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::io::{self, Write};
@@ -26,6 +27,16 @@ enum Commands {
         #[clap(short, long)]
         max_pages: Option<usize>,
     },
+    /// Process a Wikipedia article revisions dump.
+    Revisions {
+        /// The input file containing the XML dump. May be compressed with bzip2.
+        input_file: String,
+        /// The output file containing the editors of each article
+        editors_output_file: String,
+        /// The maximum number of pages to process
+        #[clap(short, long)]
+        max_pages: Option<usize>,
+    },
 }
 
 
@@ -37,9 +48,9 @@ fn main() -> io::Result<()> {
             let adjacency_list_map;
             let title_index_map;
             if input_file.ends_with(".bz2") {
-                (adjacency_list_map, title_index_map) = content::process_xml_file::<true>(input_file, max_pages);
+                (adjacency_list_map, title_index_map) = content::process_articles::<true>(input_file, max_pages);
             } else {
-                (adjacency_list_map, title_index_map) = content::process_xml_file::<false>(input_file, max_pages);
+                (adjacency_list_map, title_index_map) = content::process_articles::<false>(input_file, max_pages);
             }
 
             let csv_out = File::create(articles_output_file)?;
@@ -56,7 +67,23 @@ fn main() -> io::Result<()> {
                 writeln!(names_writer, "{}\t\"{}\"", value, key)?;
             }
 
-        }
+        },
+        Commands::Revisions { input_file, editors_output_file, max_pages } => {
+            let title_editors_map;
+            if input_file.ends_with(".gz") {
+                title_editors_map = revisions::process_revisions::<true>(input_file, max_pages);
+            } else {
+                panic!("Only gz compressed files are supported for revisions, uncompressed files are too large.");
+            }
+
+            let csv_out = File::create(editors_output_file)?;
+            let mut csv_writer = io::BufWriter::new(csv_out);
+            for (title, editors) in title_editors_map {
+                for e in editors {
+                    writeln!(csv_writer, "{} {}", title, e)?;
+                }
+            }
+        },
     }
     Ok(())
 }
