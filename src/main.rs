@@ -80,7 +80,7 @@ fn main() -> io::Result<()> {
             let mut csv_writer = io::BufWriter::new(csv_out);
             for (title, editors) in title_editors_map {
                 for e in editors {
-                    writeln!(csv_writer, "{} {}", title, e)?;
+                    writeln!(csv_writer, "{}\t{}", title, e)?;
                 }
             }
         },

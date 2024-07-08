@@ -136,7 +136,7 @@ pub fn process_revisions<const READ_COMPRESSED: bool>(
                         title_editors_map.entry(title.clone().unwrap()).or_insert_with(Vec::new).push(text);
                     } else if processing_title {
                         let text = String::from(e.unescape().unwrap());
-                        if text.starts_with("User:") || text.starts_with("Talk:") {
+                        if text.starts_with("User:") || text.starts_with("Talk:") || text.starts_with("Template talk:") || text.starts_with("Category:") || text.starts_with("User talk:") || text.starts_with("Wikipedia talk:") || text.starts_with("File:") || text.starts_with("Wikipedia:") || text.starts_with("Template:") {
                             // Skip this page. Set the title to None, then also set processing_page
                             // to false as a signal not to count the page when the page end tag hits.
                             title = None;
