@@ -13,6 +13,13 @@ from datetime import timedelta
 import pandas as pd
 import networkx as nx
 
+# If this script runs out of memory because your GPU is too small, try uncommenting
+# these lines and try again. This enables the usage of CUDA managed memory and turns on
+# a pool to reduce the number of distinct allocations.
+# import rmm
+# rmm.reinitialize(pool_allocator=True, managed_memory=True)
+
+
 class Timer:
     session_total = 0
 
