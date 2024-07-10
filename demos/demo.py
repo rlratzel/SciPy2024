@@ -1,3 +1,5 @@
+# Copyright (c) 2024, NVIDIA CORPORATION.
+#
 # Enable cudf.pandas:
 # python -m cudf.pandas demo5.py
 #
@@ -81,7 +83,7 @@ with Timer(f"Run NetworkX pagerank"):
 
 if os.environ.get("NETWORKX_BACKEND_PRIORITY") is not None:
     with Timer(f"Run again using the cached graph conversion"):
-        nxcg_pr_vals = nx.pagerank(G, backend="cugraph")
+        nx.pagerank(G, backend="cugraph")
 
 with Timer(f"Create a DataFrame containing PageRank values"):
     pagerank_df = pd.DataFrame({
@@ -98,3 +100,25 @@ with Timer(f"Compute the most influential editors"):
 with Timer(f"Show the most influential human editors"):
     most_influential_human = influence[~influence["editor"].str.lower().str.contains("bot")]
     print(most_influential_human.sort_values(by="pagerank").tail(10))
+
+
+# Six Degrees of SciPy
+other_articles = [
+    "Orange juice",
+    "Lake Leon (Florida)",
+    "Kevin Bacon",
+]
+
+with Timer(f"Find the nodeids for articles in the nodedata"):
+    scipy_nodeid = nodedata_df.loc[nodedata_df["title"] == "SciPy"]["nodeid"].values[0]
+    other_nodeids = {t: nodedata_df.loc[nodedata_df["title"] == t]["nodeid"].values[0]
+                     for t in other_articles}
+
+with Timer(f"Find the shortest path between the SciPy article and all articles"):
+    nx_shortest_paths = nx.shortest_path(G, source=scipy_nodeid)
+
+with Timer("Print the shortest paths"):
+    for p in other_nodeids:
+        print(f"\nFind the shortest path between SciPy and {p}...")
+        for nodeid in nx_shortest_paths[other_nodeids[p]]:
+            print(f'{nodedata_df.loc[nodedata_df["nodeid"] == nodeid]["title"].values[0]}')
