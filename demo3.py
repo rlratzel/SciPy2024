@@ -132,11 +132,11 @@ with Timer(f"convert nodeids in the path to page titles and print the path"):
 
 # shortest_path demo
 # NX:
-# Find the shortest path between nodeid and all articles...
+# Find the shortest path between the SciPy article and all articles...
 # Done in: 0:15:57.523904
 #
 # nx-cugraph (warm cache):
-# Find the shortest path between nodeid and all articles using nx-cugraph...
+# Find the shortest path between the SciPy article and all articles...
 # Done in: 0:05:08.500059
 #
 # ~3.1X speedup
